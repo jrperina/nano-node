@@ -213,31 +213,24 @@ public:
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
-class rep_last_heard_info
-{
-public:
-	std::chrono::steady_clock::time_point last_heard;
-	nano::account representative;
-};
 class online_reps
 {
 public:
-	online_reps (nano::node &);
-	void vote (std::shared_ptr<nano::vote> const &);
-	void recalculate_stake ();
+	online_reps (nano::ledger &, nano::uint128_t);
+	void observe (nano::account const &);
+	void sample ();
 	nano::uint128_t online_stake ();
-	nano::uint128_t online_stake_total;
 	std::vector<nano::account> list ();
-	boost::multi_index_container<
-	nano::rep_last_heard_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rep_last_heard_info, std::chrono::steady_clock::time_point, &nano::rep_last_heard_info::last_heard>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rep_last_heard_info, nano::account, &nano::rep_last_heard_info::representative>>>>
-	reps;
+	static uint64_t constexpr weight_period = 5 * 60; // 5 minutes
+	static uint64_t constexpr weight_samples = 4032; // 2 weeks
 
 private:
+	nano::uint128_t trend (nano::transaction &);
 	std::mutex mutex;
-	nano::node & node;
+	nano::ledger & ledger;
+	std::unordered_set<nano::account> reps;
+	nano::uint128_t online;
+	nano::uint128_t minimum;
 };
 class udp_data
 {
@@ -503,6 +496,8 @@ public:
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta ();
+	void ongoing_online_weight_calculation ();
+	void ongoing_online_weight_calculation_queue ();
 	boost::asio::io_context & io_ctx;
 	nano::node_config config;
 	nano::node_flags flags;
